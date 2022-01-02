@@ -1,0 +1,15 @@
+bottle
+boto3
+dnspython
+elasticsearch
+gevent
+jupyter
+matplotlib
+numpy
+requests
+requests_aws4auth
+pandas
+pymongo[tls]
+PySocks
+urllib3
+virtualenv
