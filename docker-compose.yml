@@ -1,9 +1,14 @@
-version: '2'
+version: '3.9'
 
 services:
-  rdkit:
-    image: holser-cap
+  chem:
+    image: ianh/chem-notebook
+    command: jupyter notebook --ip 0.0.0.0 --port 8888 --allow-root
+    # command: python3 /srv/test.py
+    working_dir: /
     ports:
-      - '8080:8080'
-    volumes:build:
-      - 'src:srv'
+      - '8000:8000'
+      - '8888:8888'
+    volumes:
+      - './src:/srv'
+      - './data:/data'

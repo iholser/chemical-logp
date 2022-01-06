@@ -1,4 +1,4 @@
-# docker build -t holser-cap .
+# docker build -t ianh/chem-notebook .
 # Takes ~2.5hrs to build
 
 FROM debian:bullseye-slim
