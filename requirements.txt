@@ -13,6 +13,7 @@ requests_aws4auth
 sanic
 scikit-learn
 scipy
+seaborn
 standardiser
 pandas
 PySocks

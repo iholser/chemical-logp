@@ -1,7 +1,11 @@
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
-
+from e3fp.fingerprint.db import FingerprintDatabase
 from e3fp.fingerprint.fprint import Fingerprint
+
+import pickle
+
+model = pickle.load(open("model.p", "rb"))
 
 # smiles -> mol -> 3d -> molBlock, 3d fingerprint, daylight fingerprint, macs, inchi, inchi key
 # addHs
@@ -50,3 +54,18 @@ def get_rdkit_logp(mol):
 
 def chem_3d_from_smiles(smiles):
     return chem_3d(Chem.MolFromSmiles(smiles))
+
+
+def chem_3d_from_mol_block(mol_block):
+    return chem_3d(Chem.MolFromMolBlock(mol_block))
+
+
+def get_logP(mol):
+    fp = Fingerprint.from_rdkit(Chem.GetMorganFingerprintAsBitVect(mol, 2))
+    db = FingerprintDatabase(fp_type=Fingerprint, name="logP")
+    db.add_fingerprints([fp])
+    return model.predict(db.array)[0]
+
+
+def get_chemical_info(mol):
+    return {"mol": Chem.MolToMolBlock(mol), "logP": get_logP(mol)}
