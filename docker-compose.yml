@@ -3,13 +3,14 @@ version: '3.9'
 services:
   chem:
     image: ianh/chem-notebook
-    # command: jupyter notebook --ip 0.0.0.0 --port 8888 --allow-root
+    command: jupyter notebook --ip 0.0.0.0 --port 8888 --allow-root
     # command: python3 /srv/test.py
-    command: python3 server.py
+    # command: python3 server.py
     working_dir: /srv
     ports:
       - '8000:8000'
       - '8888:8888'
     volumes:
-      - './src:/srv'
+      - './experiments:/srv'
+      # - './server:/srv'
       - './data:/data'
