@@ -40,7 +40,7 @@ async def index(request):
 @app.route('/mol', methods=['POST'])
 def chem_info(request):
     try:
-        print(request.body)
+        # print(request.body)
         mol = chem.chem_3d_from_mol_block(request.body)
         return json(chem.get_chemical_info(mol))
     except Exception as e:

@@ -1,9 +1,13 @@
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem import Lipinski
+from rdkit.Chem import Crippen
 from e3fp.fingerprint.fprint import Fingerprint
 from scipy.sparse import csr_matrix
 import pickle
+import urllib.request
+import urllib.parse
+import json
 
 model = pickle.load(open("clf.p", "rb"))
 
@@ -53,29 +57,57 @@ def get_logP(mol):
     return model.predict(fold_arr)[0]
 
 
-def get_chemical_info(mol):
+def transform_pubchem_props(compound):
+    results = {}
+    props = compound['props']
+    for p in props:
+        if ('name' in p['urn']):
+            label = '%s %s' % (p['urn']['name'], p['urn']['label'])
+            if ('fval' in p['value']):
+                results[label] = float(p['value']['fval'])
+            elif ('sval' in p['value']):
+                results[label] = str(p['value']['sval'])
+            elif ('ival' in p['value']):
+                results[label] = int(p['value']['ival'])
+    return results
 
-    molar_refractivity = Chem.Crippen.MolMR(molecule)
-    topological_surface_area_mapping = Chem.QED.properties(molecule).PSA
-    formal_charge = Chem.rdmolops.GetFormalCharge(molecule)
-    heavy_atoms = Chem.rdchem.Mol.GetNumHeavyAtoms(molecule)
-    num_of_rings = Chem.rdMolDescriptors.CalcNumRings(molecule)
+
+def get_pubchem_logP(mol):
+    try:
+        response = urllib.request.urlopen(
+            "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/%s/json" % urllib.parse.quote(Chem.MolToSmiles(mol, isomericSmiles=True), safe="")).read()
+        data = json.loads(response.decode('utf-8'))
+        cid = data['PC_Compounds'][0]['id']['id']['cid']
+        props = transform_pubchem_props(data['PC_Compounds'][0])
+        return {"cid": cid, **props}
+    except Exception as e:
+        print(e)
+        pass
+    return None
+
+
+def get_chemical_info(mol):
+    pubchem_result = get_pubchem_logP(mol)
     return {
         "mol": Chem.MolToMolBlock(mol),
         "logP": get_logP(mol),
 
+        "XLogP3": pubchem_result['XLogP3'] if 'XLogP3' in pubchem_result else None,
         "wildman_crippen_logP": get_wildman_crippen_logp(mol),
         'mw': Descriptors.MolWt(mol),
         'h_donor': Lipinski.NumHDonors(mol),
         'h_acceptor': Lipinski.NumHAcceptors(mol),
         'heavy_atom_count': Lipinski.HeavyAtomCount(mol),
         'rotatable_bonds': Descriptors.NumRotatableBonds(mol),
-        'molar_refractivity': Chem.Crippen.MolMR(mol),
-        'topological_surface_area': Chem.QED.properties(mol).PSA,
-        'formal_charge': Chem.rdmolops.GetFormalCharge(molecule),
-        'ring_count': Chem.rdMolDescriptors.CalcNumRings(molecule),
+        # 'molar_refractivity': Chem.Crippen.MolMR(mol),
+        # 'topological_surface_area': Chem.QED.properties(mol).PSA,
+        # 'formal_charge': Chem.rdmolops.GetFormalCharge(molecule),
+        # 'ring_count': Chem.rdMolDescriptors.CalcNumRings(molecule),
     }
 
+# print(props)
+# props = {'Canonicalized': {'ival': 1}, 'Hydrogen Bond Acceptor': {'ival': 0}, 'Hydrogen Bond Donor': {'ival': 0}, 'Rotatable Bond': {'ival': 0}, 'SubStructure Keys': {'binary': '00000371806000000000000000000000000000000000000000003000000000000000000100000018000000000008008010003000800000008000204200000200002000000888000000880820228011108020002080000888070000000000000000000000000000000000000000000000000000'}, 'Allowed': {'sval': 'benzene'},
+#          'CAS-like Style': {'sval': 'benzene'}, 'Markup': {'sval': 'benzene'}, 'Preferred': {'sval': 'benzene'}, 'Systematic': {'sval': 'benzene'}, 'Traditional': {'sval': 'benzene'}, 'Standard': {'sval': 'UHOVQNZJYSORNB-UHFFFAOYSA-N'}, 'XLogP3': {'fval': 2.1}, 'Exact': {'sval': '78.0469501914'}, 'Canonical': {'sval': 'C1=CC=CC=C1'}, 'Isomeric': {'sval': 'C1=CC=CC=C1'}, 'Polar Surface Area': {'fval': 0}, 'MonoIsotopic': {'sval': '78.0469501914'}}
 
 # Lipinski:
 #     Moleculer Weight <= 500

@@ -15,6 +15,7 @@ scikit-learn
 scipy
 seaborn
 standardiser
+tqdm
 pandas
 pyarrow
 PySocks
