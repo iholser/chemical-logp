@@ -5,11 +5,13 @@ from rdkit.Chem import Crippen
 from e3fp.fingerprint.fprint import Fingerprint
 from scipy.sparse import csr_matrix
 import pickle
+import statistics
 import urllib.request
 import urllib.parse
 import json
+import re
 
-model = pickle.load(open("clf.p", "rb"))
+model = pickle.load(open("svr.p", "rb"))
 
 
 def chem_3d(mol):
@@ -46,15 +48,16 @@ def chem_3d_from_mol_block(mol_block):
 
 def get_logP(mol):
     fp = Fingerprint.from_rdkit(Chem.GetMorganFingerprintAsBitVect(mol, 2))
-    arr = csr_matrix(fp.to_vector(sparse=True, dtype=Fingerprint.vector_dtype))
-    fold_arr = csr_matrix(
-        (arr.data, arr.indices % 1024, arr.indptr),
-        shape=arr.shape,
-    )
-    fold_arr.sum_duplicates()
-    fold_arr = fold_arr[:, :1024].tocsr()
+    # arr = csr_matrix(fp.to_vector(sparse=True, dtype=Fingerprint.vector_dtype))
+    # fold_arr = csr_matrix(
+    #     (arr.data, arr.indices % 1024, arr.indptr),
+    #     shape=arr.shape,
+    # )
+    # fold_arr.sum_duplicates()
+    # fold_arr = fold_arr[:, :1024].tocsr()
 
-    return model.predict(fold_arr)[0]
+    # return model.predict(fold_arr)[0]
+    return model.predict(fp.fold(1024).to_vector(sparse=True, dtype=Fingerprint.vector_dtype))[0]
 
 
 def transform_pubchem_props(compound):
@@ -72,14 +75,42 @@ def transform_pubchem_props(compound):
     return results
 
 
-def get_pubchem_logP(mol):
+def extract_value(info):
+    if ('Number' in info['Value']):
+        return float(info['Value']['Number'][0])
+    elif ('StringWithMarkup' in info['Value']):
+        print(info['Value']['StringWithMarkup'][0]['String'])
+        match = re.search(
+            '(-?\d+\.?\d{0,4})', info['Value']['StringWithMarkup'][0]['String'])
+        if (match):
+            return float(match.group())
+    return None
+
+
+def get_experimental_logp(cid):
+    try:
+        response = urllib.request.urlopen(
+            "https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/%s/JSON/?heading=LogP" % str(cid)).read()
+        data = json.loads(response.decode('utf-8'))
+        values = map(extract_value, data['Record']['Section']
+                     [0]['Section'][0]['Section'][0]['Information'])
+        return round(statistics.mean(filter(lambda v: v is not None, values)), 2)
+    except Exception as e:
+        print('%s (%s)' % (str(cid), e))
+        pass
+    return ''
+
+
+def get_pubchem_values(mol):
     try:
         response = urllib.request.urlopen(
             "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/%s/json" % urllib.parse.quote(Chem.MolToSmiles(mol, isomericSmiles=True), safe="")).read()
         data = json.loads(response.decode('utf-8'))
         cid = data['PC_Compounds'][0]['id']['id']['cid']
         props = transform_pubchem_props(data['PC_Compounds'][0])
-        return {"cid": cid, **props}
+        experimental_logp = get_experimental_logp(cid)
+        print(experimental_logp)
+        return {"cid": cid, "experimental_logp": experimental_logp, **props}
     except Exception as e:
         print(e)
         pass
@@ -87,19 +118,23 @@ def get_pubchem_logP(mol):
 
 
 def get_chemical_info(mol):
-    pubchem_result = get_pubchem_logP(mol)
+    pubchem_result = get_pubchem_values(mol)
+    XLogP3 = pubchem_result['XLogP3 Log P'] if 'XLogP3 Log P' in pubchem_result else None
+
+    'XLogP3-AA Log P'
+    print(pubchem_result)
     return {
         "mol": Chem.MolToMolBlock(mol),
         "logP": get_logP(mol),
-
-        "XLogP3": pubchem_result['XLogP3'] if 'XLogP3' in pubchem_result else None,
-        "wildman_crippen_logP": get_wildman_crippen_logp(mol),
+        "XLogP3": XLogP3,
+        "experimental_logp": pubchem_result['experimental_logp'] if 'experimental_logp' in pubchem_result else None,
+        "wildman_crippen_logP": Descriptors.MolLogP(mol),
         'mw': Descriptors.MolWt(mol),
         'h_donor': Lipinski.NumHDonors(mol),
         'h_acceptor': Lipinski.NumHAcceptors(mol),
         'heavy_atom_count': Lipinski.HeavyAtomCount(mol),
         'rotatable_bonds': Descriptors.NumRotatableBonds(mol),
-        # 'molar_refractivity': Chem.Crippen.MolMR(mol),
+        'molar_refractivity': Crippen.MolMR(mol),
         # 'topological_surface_area': Chem.QED.properties(mol).PSA,
         # 'formal_charge': Chem.rdmolops.GetFormalCharge(molecule),
         # 'ring_count': Chem.rdMolDescriptors.CalcNumRings(molecule),
