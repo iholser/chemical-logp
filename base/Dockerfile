@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip3 install --upgrade pip setuptools
 
-ENV RDKIT_BRANCH=Release_2021_03
+ENV RDKIT_BRANCH=Release_2021_09
 RUN git clone -b $RDKIT_BRANCH --single-branch https://github.com/rdkit/rdkit.git
 
 ENV RDBASE=/rdkit

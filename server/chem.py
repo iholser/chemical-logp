@@ -2,6 +2,9 @@ from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem import Lipinski
 from rdkit.Chem import Crippen
+from rdkit.Chem import QED
+from rdkit.Chem import rdmolops
+from rdkit.Chem import rdMolDescriptors
 from e3fp.fingerprint.fprint import Fingerprint
 from scipy.sparse import csr_matrix
 import pickle
@@ -24,10 +27,10 @@ def chem_3d(mol):
     except Exception as e:
         print(e)
         pass
-    return None
+    return mol
 
 
-def get_fingerprint(mol, logP):
+def get_fingerprint(mol, logP=""):
     # regenerate smiles to ensure that they are cononical
     smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
     return Fingerprint.from_rdkit(
@@ -46,17 +49,12 @@ def chem_3d_from_mol_block(mol_block):
     return chem_3d(Chem.MolFromMolBlock(mol_block))
 
 
+def mol_from_smiles(smiles):
+    return Chem.MolToMolBlock(chem_3d_from_smiles(smiles))
+
+
 def get_logP(mol):
     fp = Fingerprint.from_rdkit(Chem.GetMorganFingerprintAsBitVect(mol, 2))
-    # arr = csr_matrix(fp.to_vector(sparse=True, dtype=Fingerprint.vector_dtype))
-    # fold_arr = csr_matrix(
-    #     (arr.data, arr.indices % 1024, arr.indptr),
-    #     shape=arr.shape,
-    # )
-    # fold_arr.sum_duplicates()
-    # fold_arr = fold_arr[:, :1024].tocsr()
-
-    # return model.predict(fold_arr)[0]
     return model.predict(fp.fold(1024).to_vector(sparse=True, dtype=Fingerprint.vector_dtype))[0]
 
 
@@ -79,7 +77,6 @@ def extract_value(info):
     if ('Number' in info['Value']):
         return float(info['Value']['Number'][0])
     elif ('StringWithMarkup' in info['Value']):
-        print(info['Value']['StringWithMarkup'][0]['String'])
         match = re.search(
             '(-?\d+\.?\d{0,4})', info['Value']['StringWithMarkup'][0]['String'])
         if (match):
@@ -109,7 +106,6 @@ def get_pubchem_values(mol):
         cid = data['PC_Compounds'][0]['id']['id']['cid']
         props = transform_pubchem_props(data['PC_Compounds'][0])
         experimental_logp = get_experimental_logp(cid)
-        print(experimental_logp)
         return {"cid": cid, "experimental_logp": experimental_logp, **props}
     except Exception as e:
         print(e)
@@ -135,14 +131,10 @@ def get_chemical_info(mol):
         'heavy_atom_count': Lipinski.HeavyAtomCount(mol),
         'rotatable_bonds': Descriptors.NumRotatableBonds(mol),
         'molar_refractivity': Crippen.MolMR(mol),
-        # 'topological_surface_area': Chem.QED.properties(mol).PSA,
-        # 'formal_charge': Chem.rdmolops.GetFormalCharge(molecule),
-        # 'ring_count': Chem.rdMolDescriptors.CalcNumRings(molecule),
+        'topological_surface_area': QED.properties(mol).PSA,
+        'formal_charge': rdmolops.GetFormalCharge(mol),
+        'ring_count': rdMolDescriptors.CalcNumRings(mol),
     }
-
-# print(props)
-# props = {'Canonicalized': {'ival': 1}, 'Hydrogen Bond Acceptor': {'ival': 0}, 'Hydrogen Bond Donor': {'ival': 0}, 'Rotatable Bond': {'ival': 0}, 'SubStructure Keys': {'binary': '00000371806000000000000000000000000000000000000000003000000000000000000100000018000000000008008010003000800000008000204200000200002000000888000000880820228011108020002080000888070000000000000000000000000000000000000000000000000000'}, 'Allowed': {'sval': 'benzene'},
-#          'CAS-like Style': {'sval': 'benzene'}, 'Markup': {'sval': 'benzene'}, 'Preferred': {'sval': 'benzene'}, 'Systematic': {'sval': 'benzene'}, 'Traditional': {'sval': 'benzene'}, 'Standard': {'sval': 'UHOVQNZJYSORNB-UHFFFAOYSA-N'}, 'XLogP3': {'fval': 2.1}, 'Exact': {'sval': '78.0469501914'}, 'Canonical': {'sval': 'C1=CC=CC=C1'}, 'Isomeric': {'sval': 'C1=CC=CC=C1'}, 'Polar Surface Area': {'fval': 0}, 'MonoIsotopic': {'sval': '78.0469501914'}}
 
 # Lipinski:
 #     Moleculer Weight <= 500

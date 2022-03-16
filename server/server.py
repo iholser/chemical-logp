@@ -1,40 +1,64 @@
 from sanic import Sanic
 from sanic.response import json
+from sanic_limiter import Limiter, get_remote_address
+from typing import Iterable
 
 import chem
 
-from typing import Iterable
+limiter = Limiter(app, global_limits=[
+                  '200 per minute', '2000 per day'], key_func=get_remote_address)
+
+app = Sanic('Holser-logP')
 
 
-def _add_cors_headers(response, methods: Iterable[str]) -> None:
-    allow_methods = list(set(methods))
-    if "OPTIONS" not in allow_methods:
-        allow_methods.append("OPTIONS")
-    headers = {
-        "Access-Control-Allow-Methods": ",".join(allow_methods),
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Headers": (
-            "origin, content-type, accept, "
-            "authorization, x-xsrf-token, x-request-id"
-        ),
-    }
-    response.headers.extend(headers)
+# def _add_cors_headers(response, methods: Iterable[str]) -> None:
+#     allow_methods = list(set(methods))
+#     if "OPTIONS" not in allow_methods:
+#         allow_methods.append("OPTIONS")
+#     headers = {
+#         "Access-Control-Allow-Methods": ",".join(allow_methods),
+#         "Access-Control-Allow-Origin": "*",
+#         "Access-Control-Allow-Credentials": "true",
+#         "Access-Control-Allow-Headers": (
+#             "origin, content-type, accept, "
+#             "authorization, x-xsrf-token, x-request-id"
+#         ),
+#     }
+#     response.headers.extend(headers)
 
 
 def add_cors_headers(request, response):
     if request.method != "OPTIONS":
-        methods = [method for method in request.route.methods]
-        _add_cors_headers(response, methods)
+        methods = list(
+            set(["OPTIONS", *(method for method in request.route.methods)]))
+        headers = {
+            "Access-Control-Allow-Methods": ",".join(methods),
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": (
+                "origin, content-type, accept, "
+                "authorization, x-request-id"
+            ),
+        }
+        response.headers.extend(headers)
 
 
-app = Sanic('Holser-logP')
 app.register_middleware(add_cors_headers, "response")
 
 
 @app.route('/')
 async def index(request):
     return json({'hello': 'world'})
+
+
+@app.route('/smiles', methods=['POST'])
+def mol_from_smiles(request):
+    try:
+        mol = chem.mol_from_smiles(request.body)
+        return json({"mol": mol})
+    except Exception as e:
+        print(e)
+        return json({"error": e})
 
 
 @app.route('/mol', methods=['POST'])
