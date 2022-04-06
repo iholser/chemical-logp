@@ -4,11 +4,10 @@ from sanic_limiter import Limiter, get_remote_address
 from typing import Iterable
 
 import chem
+app = Sanic('Holser-logP')
 
 limiter = Limiter(app, global_limits=[
                   '200 per minute', '2000 per day'], key_func=get_remote_address)
-
-app = Sanic('Holser-logP')
 
 
 # def _add_cors_headers(response, methods: Iterable[str]) -> None:

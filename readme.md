@@ -28,3 +28,7 @@ Parameter hypertuning and evalation was performed on [Support Vector Regression]
 Additionally, a [neural network]() was constructed and evaluated.
 
 The best accuracy and performance was obtained using Support Vector Regression. The neural network acheived a comparable accuracy, but not as efficiently.
+
+## Deployment
+
+The model requires use of RDKit and is run using a docker container. The container is deployed to the google artifact repository and then executed using google cloud run. This provides a url endpoint.
