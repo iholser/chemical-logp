@@ -54,7 +54,7 @@ async def index(request):
 def mol_from_smiles(request):
     try:
         mol = chem.mol_from_smiles(request.body)
-        return json({"mol": mol})
+        return json(chem.get_chemical_info(mol))
     except Exception as e:
         print(e)
         return json({"error": e})
