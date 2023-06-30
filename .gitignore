@@ -8,6 +8,8 @@
 ehthumbs.db
 Thumbs.db
 
+*/node_modules/*
+
 # Jupyter files #
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
