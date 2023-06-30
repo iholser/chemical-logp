@@ -50,7 +50,7 @@ def chem_3d_from_mol_block(mol_block):
 
 
 def mol_from_smiles(smiles):
-    return Chem.MolToMolBlock(chem_3d_from_smiles(smiles))
+    return chem_3d_from_smiles(smiles)
 
 
 def get_logP(mol):
